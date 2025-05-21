@@ -25,7 +25,7 @@ func GetCurrentBranch(path string) (string, error) {
 	return strings.TrimSpace(string(branchOutput)), nil
 }
 
-func GatherCommits(path, authorInput string, currentBranchOnly bool) ([]models.CommitInfo, string, error) {
+func GatherCommits(path, authorInput, parentBranch string, currentBranchOnly bool) ([]models.CommitInfo, string, error) {
 	var results []models.CommitInfo
 
 	branchCmd := exec.Command("git", "-C", path, "rev-parse", "--abbrev-ref", "HEAD")
@@ -41,7 +41,30 @@ func GatherCommits(path, authorInput string, currentBranchOnly bool) ([]models.C
 	}
 
 	if currentBranchOnly {
-		args = append(args, currentBranch)
+		checkBranchCmd := exec.Command("git", "-C", path, "rev-parse", "--verify", parentBranch)
+		parentBranchExists := checkBranchCmd.Run() == nil
+
+		if !parentBranchExists {
+			remoteParentBranch := "origin/" + parentBranch
+			checkRemoteBranchCmd := exec.Command("git", "-C", path, "rev-parse", "--verify", remoteParentBranch)
+			if checkRemoteBranchCmd.Run() == nil {
+				parentBranch = remoteParentBranch
+				parentBranchExists = true
+			}
+		}
+
+		if parentBranchExists {
+			mergeBaseCmd := exec.Command("git", "-C", path, "merge-base", currentBranch, parentBranch)
+			mergeBaseOutput, err := mergeBaseCmd.CombinedOutput()
+			if err != nil {
+				args = append(args, currentBranch)
+			} else {
+				mergeBase := strings.TrimSpace(string(mergeBaseOutput))
+				args = append(args, mergeBase+".."+currentBranch)
+			}
+		} else {
+			args = append(args, currentBranch)
+		}
 	} else {
 		args = append(args, "--all")
 	}
@@ -97,4 +120,49 @@ func GetChangedFiles(path, commitHash string) ([]string, error) {
 		return []string{}, nil
 	}
 	return files, nil
+}
+
+func DetectDefaultBranch(path string) string {
+	defaultBranches := []string{"main", "master", "trunk", "development", "dev"}
+
+	for _, branch := range defaultBranches {
+		checkCmd := exec.Command("git", "-C", path, "rev-parse", "--verify", branch)
+		if err := checkCmd.Run(); err == nil {
+			return branch
+		}
+
+		remoteCheckCmd := exec.Command("git", "-C", path, "rev-parse", "--verify", "origin/"+branch)
+		if err := remoteCheckCmd.Run(); err == nil {
+			return "origin/" + branch
+		}
+	}
+
+	cmd := exec.Command("git", "-C", path, "remote", "show", "origin")
+	output, err := cmd.CombinedOutput()
+	if err == nil {
+		lines := strings.Split(string(output), "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if strings.HasPrefix(line, "HEAD branch:") {
+				parts := strings.SplitN(line, ":", 2)
+				if len(parts) > 1 {
+					return strings.TrimSpace(parts[1])
+				}
+			}
+		}
+	}
+
+	branchesCmd := exec.Command("git", "-C", path, "branch")
+	branchesOutput, err := branchesCmd.CombinedOutput()
+	if err == nil && len(branchesOutput) > 0 {
+		lines := strings.Split(string(branchesOutput), "\n")
+		if len(lines) > 0 {
+			branch := strings.TrimSpace(strings.TrimPrefix(lines[0], "*"))
+			if branch != "" {
+				return branch
+			}
+		}
+	}
+
+	return "main"
 }

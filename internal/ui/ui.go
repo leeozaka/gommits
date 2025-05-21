@@ -80,9 +80,9 @@ type fetchCommitsMsg struct {
 	err     error
 }
 
-func fetchCommitsCmd(dir, author string, maxCommits int, currentBranchOnly bool) tea.Cmd {
+func fetchCommitsCmd(dir, author string, maxCommits int, currentBranchOnly bool, parentBranch string) tea.Cmd {
 	return func() tea.Msg {
-		commits, branch, err := git.GatherCommits(dir, author, currentBranchOnly)
+		commits, branch, err := git.GatherCommits(dir, author, parentBranch, currentBranchOnly)
 		if err == nil && maxCommits > 0 && len(commits) > maxCommits {
 			commits = commits[:maxCommits]
 		}
@@ -131,6 +131,7 @@ type model struct {
 	maxCommits        int
 	showFiles         bool
 	currentBranchOnly bool
+	parentBranch      string
 	quitting          bool
 	width             int
 	height            int
@@ -151,6 +152,7 @@ func initialModel() model {
 		maxCommits:        0,
 		showFiles:         true,
 		currentBranchOnly: true,
+		parentBranch:      "main",
 	}
 }
 
@@ -203,6 +205,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				m.branch = branchName
 				m.directory = absDir
+
+				m.parentBranch = git.DetectDefaultBranch(absDir)
+
 				m.currentScreen = authorScreen
 				m.textInput.Placeholder = "Enter author name or email"
 				m.textInput.SetValue("")
@@ -223,8 +228,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.textInput.SetValue("0")
 				m.message = "Configure additional options"
 				m.messageStyle = infoStyle
+				m.currentBranchOnly = true
 
 			case optionsScreen:
+				if m.message == "Enter parent branch name for comparison" {
+					parentBranch := m.textInput.Value()
+					if parentBranch != "" {
+						m.parentBranch = parentBranch
+					}
+					m.textInput.Placeholder = "Enter maximum number of commits (0 for no limit)"
+					m.textInput.SetValue("0")
+					m.message = "Configure additional options"
+					m.messageStyle = infoStyle
+					return m, cmd
+				}
+
 				maxCommitsStr := m.textInput.Value()
 				maxCommits := 0
 				if maxCommitsStr != "" {
@@ -238,7 +256,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.message = fmt.Sprintf("Fetching commits for author '%s' in %s...", m.author, m.directory)
 				m.messageStyle = infoStyle
 
-				return m, fetchCommitsCmd(m.directory, m.author, m.maxCommits, m.currentBranchOnly)
+				return m, fetchCommitsCmd(m.directory, m.author, m.maxCommits, m.currentBranchOnly, m.parentBranch)
 
 			case resultsScreen:
 				m.currentScreen = exportScreen
@@ -272,19 +290,41 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 
-		case tea.KeyBackspace:
-			if m.currentScreen != homeScreen && msg.Alt {
+		case tea.KeyRunes:
+			key := string(msg.Runes)
+			if m.currentScreen == optionsScreen && key == "p" {
+				m.textInput.Placeholder = "Enter parent branch name for comparison"
+				m.textInput.SetValue(m.parentBranch)
+				m.message = "Enter parent branch name for comparison"
+				m.messageStyle = infoStyle
+			} else if key == "b" && m.currentScreen != homeScreen {
 				switch m.currentScreen {
 				case directoryScreen:
 					m.currentScreen = homeScreen
+					m.message = "Welcome to Gommits App!"
+					m.messageStyle = infoStyle
 				case authorScreen:
 					m.currentScreen = directoryScreen
+					m.textInput.Placeholder = "Enter path to Git repository"
+					m.textInput.SetValue(m.directory)
+					m.message = "Please enter the path to a Git repository"
+					m.messageStyle = infoStyle
 				case optionsScreen:
 					m.currentScreen = authorScreen
+					m.textInput.Placeholder = "Enter author name or email"
+					m.textInput.SetValue(m.author)
+					m.message = "Please enter the author name or email to filter commits"
+					m.messageStyle = infoStyle
 				case resultsScreen:
 					m.currentScreen = optionsScreen
+					m.textInput.Placeholder = "Enter maximum number of commits (0 for no limit)"
+					m.textInput.SetValue(fmt.Sprintf("%d", m.maxCommits))
+					m.message = "Configure additional options"
+					m.messageStyle = infoStyle
 				case exportScreen:
 					m.currentScreen = resultsScreen
+					m.message = fmt.Sprintf("Found %d commits in branch '%s'", len(m.commits), m.branch)
+					m.messageStyle = successStyle
 				}
 			}
 		}
@@ -337,12 +377,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) View() string {
 	var s strings.Builder
 
-	// Center title
-	s.WriteString(lipgloss.Place(m.width, 3, lipgloss.Center, lipgloss.Center, titleStyle.Render("Gommits App")))
+	s.WriteString(lipgloss.Place(m.width, 3, lipgloss.Center, lipgloss.Center, titleStyle.Render("Gommits - Commit Analyzer")))
+	s.WriteString("\n")
+
+	s.WriteString(lipgloss.Place(m.width, 2, lipgloss.Center, lipgloss.Center, m.messageStyle.Render(m.message)))
 	s.WriteString("\n\n")
 
-	content := strings.Builder{}
-
+	var content strings.Builder
 	switch m.currentScreen {
 	case homeScreen:
 		content.WriteString("Welcome to Gommits App!\n\n")
@@ -352,58 +393,25 @@ func (m model) View() string {
 		content.WriteString("• View detailed commit information\n")
 		content.WriteString("• Export changed files to CSV\n")
 		content.WriteString("• Stylized terminal output\n\n")
-		content.WriteString(highlightStyle.Render("Press Enter to start") + " or Ctrl+C to quit\n\n")
-
+		content.WriteString(modifiedHelpText("start", false, true, false))
 	case directoryScreen:
-		content.WriteString(highlightStyle.Render("Step 1: Select Git Repository"))
-		content.WriteString("\n\n")
-		content.WriteString("Enter the path to a Git repository:\n")
-		content.WriteString(m.textInput.View())
-		content.WriteString("\n\n")
-		content.WriteString(dimmedStyle.Render("(Press Enter to confirm, Tab for current directory, Alt+Backspace to go back, Esc to quit)"))
-
+		content.WriteString(m.textInput.View() + "\n\n")
+		content.WriteString(modifiedHelpText("continue", true, true, true))
 	case authorScreen:
-		content.WriteString(highlightStyle.Render("Step 2: Enter Author Information"))
-		content.WriteString("\n\n")
-		content.WriteString(fmt.Sprintf("Repository: %s", m.directory))
-		content.WriteString("\n")
-		content.WriteString(fmt.Sprintf("Branch: %s", highlightStyle.Render(m.branch)))
-		content.WriteString("\n")
-		content.WriteString("Enter author name or email to filter commits:\n")
-		content.WriteString(m.textInput.View())
-		content.WriteString("\n\n")
-		content.WriteString(dimmedStyle.Render("(Press Enter to confirm, Alt+Backspace to go back, Esc to quit)"))
-
+		content.WriteString(m.textInput.View() + "\n\n")
+		content.WriteString(modifiedHelpText("continue", true, true, false))
+	case exportScreen:
+		content.WriteString(m.textInput.View() + "\n\n")
+		content.WriteString(modifiedHelpText("save CSV", true, true, false))
 	case optionsScreen:
-		content.WriteString(highlightStyle.Render("Step 3: Configure Options\n\n"))
-		content.WriteString(fmt.Sprintf("Repository: %s\n", m.directory))
-		content.WriteString(fmt.Sprintf("Author: %s\n\n", m.author))
-
-		content.WriteString("Maximum number of commits to fetch (0 for no limit):\n")
-		content.WriteString(m.textInput.View())
-		content.WriteString("\n\n")
-
-		showFilesText := "Yes"
-		if !m.showFiles {
-			showFilesText = "No"
-		}
-		content.WriteString(fmt.Sprintf("Show changed files: %s (Press Alt+Tab to toggle)\n", showFilesText))
-
-		branchText := "Current branch only"
-		if !m.currentBranchOnly {
-			branchText = "All branches"
-		}
-		content.WriteString(fmt.Sprintf("Branch selection: %s (Press Tab to toggle)\n\n", branchText))
-
-		content.WriteString(dimmedStyle.Render("(Press Enter to fetch commits, Alt+Backspace to go back, Esc to quit)"))
+		content.WriteString(m.textInput.View() + "\n\n")
+		content.WriteString("Press " + highlightStyle.Render("Enter") + " to fetch commits.\n")
+		content.WriteString("Press " + highlightStyle.Render("Tab") + " to toggle current branch only (" + boolToYesNo(m.currentBranchOnly) + ").\n")
+		content.WriteString("Press " + highlightStyle.Render("Alt+Tab") + " to toggle show files (" + boolToYesNo(m.showFiles) + ").\n")
+		content.WriteString("Press " + highlightStyle.Render("P") + " to edit parent branch (" + m.parentBranch + ").\n")
+		content.WriteString(modifiedHelpText("", true, true, false))
 
 	case resultsScreen:
-		content.WriteString(titleStyle.Render("Commit History"))
-		content.WriteString("\n\n")
-		content.WriteString(m.messageStyle.Render(m.message))
-		content.WriteString("\n\n")
-		content.WriteString(fmt.Sprintf("Branch: %s\n\n", highlightStyle.Render(m.branch)))
-
 		if len(m.commits) == 0 {
 			content.WriteString("No commits found for this author.\n\n")
 		} else {
@@ -416,10 +424,14 @@ func (m model) View() string {
 
 			for i := 0; i < displayCount; i++ {
 				c := m.commits[i]
-				content.WriteString(commitHashStyle.Render(fmt.Sprintf("Commit: %s\n", c.Hash)))
-				content.WriteString(fmt.Sprintf("  Author: %s\n", commitAuthorStyle.Render(c.Author)))
-				content.WriteString(fmt.Sprintf("  Date: %s\n", c.Date))
-				content.WriteString(fmt.Sprintf("  Message: %s\n", c.Message))
+				content.WriteString(commitHashStyle.Render(fmt.Sprintf("Commit: %s", c.Hash)))
+				content.WriteString("\n")
+				content.WriteString(fmt.Sprintf("  Author: %s", commitAuthorStyle.Render(c.Author)))
+				content.WriteString("\n")
+				content.WriteString(fmt.Sprintf("  Date: %s", c.Date))
+				content.WriteString("\n")
+				content.WriteString(fmt.Sprintf("  Message: %s", c.Message))
+				content.WriteString("\n")
 
 				if m.showFiles && len(c.Files) > 0 {
 					fileCount := len(c.Files)
@@ -437,33 +449,55 @@ func (m model) View() string {
 				content.WriteString(dimmedStyle.Render(fmt.Sprintf("...and %d more commits\n\n", len(m.commits)-5)))
 			}
 		}
-
-		content.WriteString(highlightStyle.Render("Press Enter to export to CSV") + ", Alt+Backspace to go back, or Esc to quit\n")
-
-	case exportScreen:
-		content.WriteString(highlightStyle.Render("Export to CSV\n\n"))
-		content.WriteString(fmt.Sprintf("Repository: %s\n", m.directory))
-		content.WriteString(fmt.Sprintf("Author: %s\n", m.author))
-		content.WriteString(fmt.Sprintf("Commits: %d\n\n", len(m.commits)))
-
-		content.WriteString("Enter the path for the CSV file:\n")
-		content.WriteString(m.textInput.View())
-		content.WriteString("\n\n")
-		content.WriteString(dimmedStyle.Render("(Press Enter to confirm, Alt+Backspace to go back, Esc to quit)"))
+		content.WriteString("\n")
+		content.WriteString("Press " + highlightStyle.Render("Enter") + " to export to CSV.\n")
+		content.WriteString(modifiedHelpText("", true, true, false))
 	}
 
-	// Center the main content
-	s.WriteString(lipgloss.Place(m.width, m.height-10, lipgloss.Center, lipgloss.Center, content.String()))
-
-	if m.message != "" {
-		s.WriteString("\n\n")
-		s.WriteString(lipgloss.Place(m.width, 1, lipgloss.Center, lipgloss.Center, m.messageStyle.Render(m.message)))
+	contentPlaceHeight := m.height - 8 - 3
+	if contentPlaceHeight < 5 {
+		contentPlaceHeight = 5
 	}
+	s.WriteString(lipgloss.Place(m.width, contentPlaceHeight, lipgloss.Center, lipgloss.Center, content.String()))
 
+	footerText := "Navigation: " +
+		highlightStyle.Render("Enter") + " to proceed, " +
+		highlightStyle.Render("B") + " for back, " +
+		highlightStyle.Render("Esc/Ctrl+C") + " to quit"
 	s.WriteString("\n\n")
-	s.WriteString(lipgloss.Place(m.width, 1, lipgloss.Center, lipgloss.Center, dimmedStyle.Render("Navigation: Enter to proceed, Alt+Backspace to go back, Esc to quit")))
+	s.WriteString(lipgloss.Place(m.width, 1, lipgloss.Center, lipgloss.Center, dimmedStyle.Render(footerText)))
 
 	return s.String()
+}
+
+func boolToYesNo(b bool) string {
+	if b {
+		return "Yes"
+	}
+	return "No"
+}
+
+func modifiedHelpText(enterAction string, includeBack bool, includeQuit bool, showTabHint bool) string {
+	var parts []string
+	if enterAction != "" {
+		parts = append(parts, highlightStyle.Render("Enter")+" to "+enterAction)
+	}
+	if includeBack {
+		parts = append(parts, highlightStyle.Render("B")+" for back")
+	}
+	if includeQuit {
+		parts = append(parts, highlightStyle.Render("Esc")+" to quit")
+	}
+
+	var finalHelp string
+	if len(parts) > 0 {
+		finalHelp = "Press " + strings.Join(parts, ", ") + ".\n"
+	}
+
+	if showTabHint {
+		finalHelp += dimmedStyle.Render("Hint: Press Tab to use current directory (.).") + "\n"
+	}
+	return finalHelp
 }
 
 func StartUI() {
