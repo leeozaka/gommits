@@ -133,7 +133,6 @@ type model struct {
 	messageStyle      lipgloss.Style
 	commits           []models.CommitInfo
 	branch            string
-	excelPath         string
 	maxCommits        int
 	showFiles         bool
 	currentBranchOnly bool
@@ -706,7 +705,7 @@ func (m model) renderToast() string {
 			fgR, fgG, fgB := 0x38, 0xA1, 0x69
 			borderR, borderG, borderB := 0x2F, 0x85, 0x5A
 			
-			style = style.Copy().
+			style = style.
 				Background(lipgloss.Color(fmt.Sprintf("#%02x%02x%02x",
 					int(float64(fgR)*m.toast.Opacity + float64(bgR)*(1-m.toast.Opacity)),
 					int(float64(fgG)*m.toast.Opacity + float64(bgG)*(1-m.toast.Opacity)),
@@ -719,7 +718,7 @@ func (m model) renderToast() string {
 			fgR, fgG, fgB := 0xE5, 0x3E, 0x3E
 			borderR, borderG, borderB := 0xC5, 0x30, 0x30
 			
-			style = style.Copy().
+			style = style.
 				Background(lipgloss.Color(fmt.Sprintf("#%02x%02x%02x",
 					int(float64(fgR)*m.toast.Opacity + float64(bgR)*(1-m.toast.Opacity)),
 					int(float64(fgG)*m.toast.Opacity + float64(bgG)*(1-m.toast.Opacity)),
@@ -731,7 +730,7 @@ func (m model) renderToast() string {
 		}
 		
 		textR, textG, textB := 0xFA, 0xFA, 0xFA
-		style = style.Copy().
+		style = style.
 			Foreground(lipgloss.Color(fmt.Sprintf("#%02x%02x%02x",
 				int(float64(textR)*m.toast.Opacity + float64(bgR)*(1-m.toast.Opacity)),
 				int(float64(textG)*m.toast.Opacity + float64(bgG)*(1-m.toast.Opacity)),
