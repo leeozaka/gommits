@@ -2,6 +2,7 @@ package git
 
 import (
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/leeozaka/gommits/internal/models"
@@ -29,6 +30,40 @@ func IsGitRepo(path string) bool {
 
 func GetCurrentBranch(path string) (string, error) {
 	return execGit(path, "rev-parse", "--abbrev-ref", "HEAD")
+}
+
+func GetRepositoryName(path string) string {
+	if output, err := execGit(path, "remote", "get-url", "origin"); err == nil {
+		url := strings.TrimSpace(output)
+
+		if strings.HasSuffix(url, ".git") {
+			url = url[:len(url)-4]
+		}
+
+		parts := strings.Split(url, "/")
+		if len(parts) > 0 {
+			repoName := parts[len(parts)-1]
+			if repoName != "" {
+				return repoName
+			}
+		}
+
+		if strings.Contains(url, ":") {
+			parts = strings.Split(url, ":")
+			if len(parts) > 1 {
+				pathPart := parts[len(parts)-1]
+				pathParts := strings.Split(pathPart, "/")
+				if len(pathParts) > 0 {
+					repoName := pathParts[len(pathParts)-1]
+					if repoName != "" {
+						return repoName
+					}
+				}
+			}
+		}
+	}
+	
+	return filepath.Base(path)
 }
 
 func GatherCommits(path, authorInput, parentBranch string, currentBranchOnly bool) ([]models.CommitInfo, string, error) {
