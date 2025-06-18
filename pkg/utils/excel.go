@@ -2,12 +2,12 @@ package utils
 
 import (
 	"fmt"
-	"strconv"
 	"path/filepath"
+	"strconv"
 
-	"github.com/xuri/excelize/v2"
-	"github.com/leeozaka/gommits/internal/models"
 	"github.com/leeozaka/gommits/internal/git"
+	"github.com/leeozaka/gommits/internal/models"
+	"github.com/xuri/excelize/v2"
 )
 
 func ExportToExcel(commits []models.CommitInfo, repoPath string) error {
@@ -33,12 +33,12 @@ func ExportToExcel(commits []models.CommitInfo, repoPath string) error {
 	f.DeleteSheet("Sheet1")
 
 	headers := []string{"Commit Hash", "Author Name", "Author Email", "Commit Date", "Commit Message", "Files Changed"}
-	
+
 	headerStyle, err := f.NewStyle(&excelize.Style{
 		Font: &excelize.Font{
-			Bold:   true,
-			Size:   12,
-			Color:  "#FFFFFF",
+			Bold:  true,
+			Size:  12,
+			Color: "#FFFFFF",
 		},
 		Fill: excelize.Fill{
 			Type:    "pattern",
@@ -68,8 +68,8 @@ func ExportToExcel(commits []models.CommitInfo, repoPath string) error {
 			{Type: "right", Color: "#000000", Style: 1},
 		},
 		Alignment: &excelize.Alignment{
-			Vertical:   "top",
-			WrapText:   true,
+			Vertical: "top",
+			WrapText: true,
 		},
 	})
 	if err != nil {
@@ -182,7 +182,7 @@ func ExportToExcel(commits []models.CommitInfo, repoPath string) error {
 
 func WriteExcel() {
 	repoPath := "."
-	
+
 	if !git.IsGitRepo(repoPath) {
 		fmt.Println("Current directory is not a git repository")
 		return

@@ -62,7 +62,7 @@ func GetRepositoryName(path string) string {
 			}
 		}
 	}
-	
+
 	return filepath.Base(path)
 }
 

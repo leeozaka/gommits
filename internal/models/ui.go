@@ -52,4 +52,4 @@ type ShowToastMsg struct {
 
 type HideToastMsg struct{}
 
-type TickMsg time.Time 
+type TickMsg time.Time

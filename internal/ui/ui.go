@@ -343,7 +343,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		toastMessage := fmt.Sprintf("✅ Exported %d commits to Excel", len(m.commits))
-		
+
 		return m, showToastCmd(toastMessage, models.ToastSuccess, 3*time.Second)
 
 	case models.ShowToastMsg:
@@ -395,7 +395,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.toast.Opacity = 1.0
 					}
 				}
-				
+
 				return m, tickCmd(50 * time.Millisecond)
 			}
 		}
@@ -421,7 +421,7 @@ func (m model) View() string {
 	if m.toast.Visible && m.toast.Opacity > 0 {
 		return m.renderMainContentWithToast()
 	}
-	
+
 	return m.renderMainContent()
 }
 
@@ -470,12 +470,12 @@ func (m model) renderMainContent() string {
 			if availableHeight < 10 {
 				availableHeight = 10
 			}
-			
+
 			linesPerCommit := 5
 			if m.showFiles {
 				linesPerCommit = 7
 			}
-			
+
 			maxDisplayCommits := availableHeight / linesPerCommit
 			if maxDisplayCommits < 1 {
 				maxDisplayCommits = 1
@@ -497,7 +497,7 @@ func (m model) renderMainContent() string {
 				content.WriteString("\n")
 				content.WriteString(fmt.Sprintf("  Date: %s", c.Date))
 				content.WriteString("\n")
-				
+
 				message := c.Message
 				if len(message) > 60 {
 					message = message[:57] + "..."
@@ -551,13 +551,13 @@ func (m model) renderMainContentWithToast() string {
 		for i := 0; i < verticalOffset; i++ {
 			s.WriteString("\n")
 		}
-		
+
 		toastWidth := lipgloss.Width(toastContent)
 		horizontalPadding := (m.width - toastWidth) / 2
 		if horizontalPadding < 0 {
 			horizontalPadding = 0
 		}
-		
+
 		s.WriteString(strings.Repeat(" ", horizontalPadding))
 		s.WriteString(toastContent)
 		s.WriteString("\n\n")
@@ -608,12 +608,12 @@ func (m model) renderMainContentWithToast() string {
 			if availableHeight < 10 {
 				availableHeight = 10
 			}
-			
+
 			linesPerCommit := 5
 			if m.showFiles {
 				linesPerCommit = 7
 			}
-			
+
 			maxDisplayCommits := availableHeight / linesPerCommit
 			if maxDisplayCommits < 1 {
 				maxDisplayCommits = 1
@@ -635,7 +635,7 @@ func (m model) renderMainContentWithToast() string {
 				content.WriteString("\n")
 				content.WriteString(fmt.Sprintf("  Date: %s", c.Date))
 				content.WriteString("\n")
-				
+
 				message := c.Message
 				if len(message) > 60 {
 					message = message[:57] + "..."
@@ -700,41 +700,41 @@ func (m model) renderToast() string {
 
 	if m.toast.Opacity < 1.0 {
 		bgR, bgG, bgB := 0x1A, 0x1A, 0x1A
-		
+
 		if m.toast.Type == models.ToastSuccess {
 			fgR, fgG, fgB := 0x38, 0xA1, 0x69
 			borderR, borderG, borderB := 0x2F, 0x85, 0x5A
-			
+
 			style = style.
 				Background(lipgloss.Color(fmt.Sprintf("#%02x%02x%02x",
-					int(float64(fgR)*m.toast.Opacity + float64(bgR)*(1-m.toast.Opacity)),
-					int(float64(fgG)*m.toast.Opacity + float64(bgG)*(1-m.toast.Opacity)),
-					int(float64(fgB)*m.toast.Opacity + float64(bgB)*(1-m.toast.Opacity))))).
+					int(float64(fgR)*m.toast.Opacity+float64(bgR)*(1-m.toast.Opacity)),
+					int(float64(fgG)*m.toast.Opacity+float64(bgG)*(1-m.toast.Opacity)),
+					int(float64(fgB)*m.toast.Opacity+float64(bgB)*(1-m.toast.Opacity))))).
 				BorderForeground(lipgloss.Color(fmt.Sprintf("#%02x%02x%02x",
-					int(float64(borderR)*m.toast.Opacity + float64(bgR)*(1-m.toast.Opacity)),
-					int(float64(borderG)*m.toast.Opacity + float64(bgG)*(1-m.toast.Opacity)),
-					int(float64(borderB)*m.toast.Opacity + float64(bgB)*(1-m.toast.Opacity)))))
+					int(float64(borderR)*m.toast.Opacity+float64(bgR)*(1-m.toast.Opacity)),
+					int(float64(borderG)*m.toast.Opacity+float64(bgG)*(1-m.toast.Opacity)),
+					int(float64(borderB)*m.toast.Opacity+float64(bgB)*(1-m.toast.Opacity)))))
 		} else {
 			fgR, fgG, fgB := 0xE5, 0x3E, 0x3E
 			borderR, borderG, borderB := 0xC5, 0x30, 0x30
-			
+
 			style = style.
 				Background(lipgloss.Color(fmt.Sprintf("#%02x%02x%02x",
-					int(float64(fgR)*m.toast.Opacity + float64(bgR)*(1-m.toast.Opacity)),
-					int(float64(fgG)*m.toast.Opacity + float64(bgG)*(1-m.toast.Opacity)),
-					int(float64(fgB)*m.toast.Opacity + float64(bgB)*(1-m.toast.Opacity))))).
+					int(float64(fgR)*m.toast.Opacity+float64(bgR)*(1-m.toast.Opacity)),
+					int(float64(fgG)*m.toast.Opacity+float64(bgG)*(1-m.toast.Opacity)),
+					int(float64(fgB)*m.toast.Opacity+float64(bgB)*(1-m.toast.Opacity))))).
 				BorderForeground(lipgloss.Color(fmt.Sprintf("#%02x%02x%02x",
-					int(float64(borderR)*m.toast.Opacity + float64(bgR)*(1-m.toast.Opacity)),
-					int(float64(borderG)*m.toast.Opacity + float64(bgG)*(1-m.toast.Opacity)),
-					int(float64(borderB)*m.toast.Opacity + float64(bgB)*(1-m.toast.Opacity)))))
+					int(float64(borderR)*m.toast.Opacity+float64(bgR)*(1-m.toast.Opacity)),
+					int(float64(borderG)*m.toast.Opacity+float64(bgG)*(1-m.toast.Opacity)),
+					int(float64(borderB)*m.toast.Opacity+float64(bgB)*(1-m.toast.Opacity)))))
 		}
-		
+
 		textR, textG, textB := 0xFA, 0xFA, 0xFA
 		style = style.
 			Foreground(lipgloss.Color(fmt.Sprintf("#%02x%02x%02x",
-				int(float64(textR)*m.toast.Opacity + float64(bgR)*(1-m.toast.Opacity)),
-				int(float64(textG)*m.toast.Opacity + float64(bgG)*(1-m.toast.Opacity)),
-				int(float64(textB)*m.toast.Opacity + float64(bgB)*(1-m.toast.Opacity)))))
+				int(float64(textR)*m.toast.Opacity+float64(bgR)*(1-m.toast.Opacity)),
+				int(float64(textG)*m.toast.Opacity+float64(bgG)*(1-m.toast.Opacity)),
+				int(float64(textB)*m.toast.Opacity+float64(bgB)*(1-m.toast.Opacity)))))
 	}
 
 	return style.Render(m.toast.Message)
