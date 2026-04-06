@@ -52,4 +52,13 @@ type ShowToastMsg struct {
 
 type HideToastMsg struct{}
 
+type ErrorMsg struct {
+	Err     error
+	Context string
+}
+
+func NewError(err error, context string) ErrorMsg {
+	return ErrorMsg{Err: err, Context: context}
+}
+
 type TickMsg time.Time

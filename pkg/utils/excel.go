@@ -5,12 +5,11 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/leeozaka/gommits/internal/git"
 	"github.com/leeozaka/gommits/internal/models"
 	"github.com/xuri/excelize/v2"
 )
 
-func ExportToExcel(commits []models.CommitInfo, repoPath string) error {
+func ExportToExcel(commits []models.CommitInfo, repoPath, repoName string) error {
 	f := excelize.NewFile()
 
 	defer func() {
@@ -19,7 +18,6 @@ func ExportToExcel(commits []models.CommitInfo, repoPath string) error {
 		}
 	}()
 
-	repoName := git.GetRepositoryName(repoPath)
 	fileName := fmt.Sprintf("%s_commits.xlsx", repoName)
 
 	sheetName := "Commits"
@@ -180,15 +178,19 @@ func ExportToExcel(commits []models.CommitInfo, repoPath string) error {
 	return nil
 }
 
-func WriteExcel() {
+func WriteExcel(svc interface {
+	IsGitRepo(string) bool
+	GatherCommits(string, string, string, bool) ([]models.CommitInfo, string, error)
+	GetRepositoryName(string) string
+}) {
 	repoPath := "."
 
-	if !git.IsGitRepo(repoPath) {
+	if !svc.IsGitRepo(repoPath) {
 		fmt.Println("Current directory is not a git repository")
 		return
 	}
 
-	commits, _, err := git.GatherCommits(repoPath, "", "main", true)
+	commits, _, err := svc.GatherCommits(repoPath, "", "main", true)
 	if err != nil {
 		fmt.Printf("Error gathering commits: %v\n", err)
 		return
@@ -198,7 +200,8 @@ func WriteExcel() {
 		commits = commits[:50]
 	}
 
-	err = ExportToExcel(commits, repoPath)
+	repoName := svc.GetRepositoryName(repoPath)
+	err = ExportToExcel(commits, repoPath, repoName)
 	if err != nil {
 		fmt.Printf("Error creating Excel file: %v\n", err)
 		return

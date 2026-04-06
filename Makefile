@@ -6,7 +6,7 @@ GO_FILES=$(shell find . -name "*.go" -type f)
 .DEFAULT_GOAL := help
 
 .PHONY: build
-build:
+build: fmt
 	@echo "Building $(BINARY_NAME)..."
 	@mkdir -p $(BUILD_DIR)
 	go build -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PATH)
@@ -35,7 +35,7 @@ deps:
 	go mod tidy
 
 .PHONY: test
-test:
+test: fmt
 	@echo "Running tests..."
 	go test -v ./...
 
@@ -71,6 +71,13 @@ build-all: ## Build for multiple platforms
 	GOOS=darwin GOARCH=arm64 go build -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 $(MAIN_PATH)
 	GOOS=windows GOARCH=amd64 go build -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe $(MAIN_PATH)
 	@echo "Cross-platform builds complete"
+
+.PHONY: check
+check: fmt lint test ## Run fmt, lint, and tests
+
+.PHONY: help
+help: ## Show available targets
+	@grep -E '^[a-zA-Z_-]+:.*?##' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
 
 # with file watching - requires air
 .PHONY: dev

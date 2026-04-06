@@ -1,12 +1,24 @@
 package git
 
 import (
+	"net/url"
 	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"github.com/leeozaka/gommits/internal/models"
 )
+
+const (
+	OriginPrefix     = "origin/"
+	DefaultBranchRef = "main"
+	GitDelimiter     = "|"
+	LogFormat        = "%H" + GitDelimiter + "%an" + GitDelimiter + "%ae" + GitDelimiter + "%ad" + GitDelimiter + "%s"
+	LogFieldCount    = 5
+	HeadBranchPrefix = "HEAD branch:"
+)
+
+var defaultBranchCandidates = []string{"main", "master", "trunk", "development", "dev"}
 
 func execGit(path string, args ...string) (string, error) {
 	fullArgs := append([]string{"-C", path}, args...)
@@ -33,33 +45,26 @@ func GetCurrentBranch(path string) (string, error) {
 }
 
 func GetRepositoryName(path string) string {
-	if output, err := execGit(path, "remote", "get-url", "origin"); err == nil {
-		url := strings.TrimSpace(output)
+	output, err := execGit(path, "remote", "get-url", "origin")
+	if err != nil {
+		return filepath.Base(path)
+	}
 
-		if strings.HasSuffix(url, ".git") {
-			url = url[:len(url)-4]
-		}
+	raw := strings.TrimSpace(output)
+	raw = strings.TrimSuffix(raw, ".git")
 
-		parts := strings.Split(url, "/")
-		if len(parts) > 0 {
-			repoName := parts[len(parts)-1]
-			if repoName != "" {
-				return repoName
+	if strings.HasPrefix(raw, "http://") || strings.HasPrefix(raw, "https://") {
+		if u, err := url.Parse(raw); err == nil {
+			if name := filepath.Base(u.Path); name != "" && name != "." {
+				return name
 			}
 		}
+	}
 
-		if strings.Contains(url, ":") {
-			parts = strings.Split(url, ":")
-			if len(parts) > 1 {
-				pathPart := parts[len(parts)-1]
-				pathParts := strings.Split(pathPart, "/")
-				if len(pathParts) > 0 {
-					repoName := pathParts[len(pathParts)-1]
-					if repoName != "" {
-						return repoName
-					}
-				}
-			}
+	if idx := strings.LastIndex(raw, ":"); idx != -1 {
+		sshPath := raw[idx+1:]
+		if name := filepath.Base(sshPath); name != "" && name != "." {
+			return name
 		}
 	}
 
@@ -73,7 +78,7 @@ func GatherCommits(path, authorInput, parentBranch string, currentBranchOnly boo
 	}
 
 	args := []string{"log",
-		"--pretty=format:%H|%an|%ae|%ad|%s",
+		"--pretty=format:" + LogFormat,
 		"--author=" + authorInput,
 	}
 
@@ -94,8 +99,8 @@ func GatherCommits(path, authorInput, parentBranch string, currentBranchOnly boo
 
 func getCommitRange(path, currentBranch, parentBranch string) string {
 	if !refExists(path, parentBranch) {
-		if refExists(path, "origin/"+parentBranch) {
-			parentBranch = "origin/" + parentBranch
+		if refExists(path, OriginPrefix+parentBranch) {
+			parentBranch = OriginPrefix + parentBranch
 		} else {
 			return currentBranch
 		}
@@ -117,8 +122,8 @@ func parseCommits(path, output string) ([]models.CommitInfo, error) {
 			continue
 		}
 
-		parts := strings.SplitN(line, "|", 5)
-		if len(parts) < 5 {
+		parts := strings.SplitN(line, GitDelimiter, LogFieldCount)
+		if len(parts) < LogFieldCount {
 			continue
 		}
 
@@ -154,19 +159,19 @@ func GetChangedFiles(path, commitHash string) ([]string, error) {
 }
 
 func DetectDefaultBranch(path string) string {
-	for _, branch := range []string{"main", "master", "trunk", "development", "dev"} {
+	for _, branch := range defaultBranchCandidates {
 		if refExists(path, branch) {
 			return branch
 		}
-		if refExists(path, "origin/"+branch) {
-			return "origin/" + branch
+		if refExists(path, OriginPrefix+branch) {
+			return OriginPrefix + branch
 		}
 	}
 
 	if output, err := execGit(path, "remote", "show", "origin"); err == nil {
-		for _, line := range strings.Split(output, "\n") {
+		for line := range strings.SplitSeq(output, "\n") {
 			line = strings.TrimSpace(line)
-			if strings.HasPrefix(line, "HEAD branch:") {
+			if strings.HasPrefix(line, HeadBranchPrefix) {
 				if parts := strings.SplitN(line, ":", 2); len(parts) > 1 {
 					return strings.TrimSpace(parts[1])
 				}
@@ -182,5 +187,5 @@ func DetectDefaultBranch(path string) string {
 		}
 	}
 
-	return "main"
+	return DefaultBranchRef
 }
