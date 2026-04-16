@@ -9,6 +9,7 @@ type GitService interface {
 	DetectDefaultBranch(path string) string
 	GatherCommits(path, author, parentBranch string, currentBranchOnly bool) ([]models.CommitInfo, string, error)
 	GetChangedFiles(path, commitHash string) ([]string, error)
+	PathExistsInRef(repoPath, ref, targetPath string) bool
 }
 
 type CLIGitService struct{}
@@ -39,4 +40,8 @@ func (s *CLIGitService) GatherCommits(path, author, parentBranch string, current
 
 func (s *CLIGitService) GetChangedFiles(path, commitHash string) ([]string, error) {
 	return GetChangedFiles(path, commitHash)
+}
+
+func (s *CLIGitService) PathExistsInRef(repoPath, ref, targetPath string) bool {
+	return PathExistsInRef(repoPath, ref, targetPath)
 }

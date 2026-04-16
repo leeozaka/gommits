@@ -8,3 +8,9 @@ type CommitInfo struct {
 	Message string
 	Files   []string
 }
+
+type DotnetEntry struct {
+	Sequence int
+	Path     string
+	Type     string // "edit", "NEW", or ""
+}

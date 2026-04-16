@@ -207,3 +207,154 @@ func WriteExcel(svc interface {
 		return
 	}
 }
+
+func ExportDotnetExcel(entries []models.DotnetEntry, repoPath, repoName string) error {
+	f := excelize.NewFile()
+
+	defer func() {
+		if err := f.Close(); err != nil {
+			fmt.Println(err)
+		}
+	}()
+
+	fileName := fmt.Sprintf("%s_dotnet.xlsx", repoName)
+
+	sheetName := "Objetos"
+	index, err := f.NewSheet(sheetName)
+	if err != nil {
+		return fmt.Errorf("failed to create sheet: %v", err)
+	}
+
+	f.SetActiveSheet(index)
+	f.DeleteSheet("Sheet1")
+
+	titleStyle, err := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{
+			Bold: true,
+			Size: 14,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create title style: %v", err)
+	}
+
+	headerStyle, err := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{
+			Bold:  true,
+			Size:  11,
+			Color: "#FFFFFF",
+		},
+		Fill: excelize.Fill{
+			Type:    "pattern",
+			Color:   []string{"#4472C4"},
+			Pattern: 1,
+		},
+		Border: []excelize.Border{
+			{Type: "left", Color: "#000000", Style: 1},
+			{Type: "top", Color: "#000000", Style: 1},
+			{Type: "bottom", Color: "#000000", Style: 1},
+			{Type: "right", Color: "#000000", Style: 1},
+		},
+		Alignment: &excelize.Alignment{
+			Horizontal: "center",
+			Vertical:   "center",
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create header style: %v", err)
+	}
+
+	subLabelStyle, err := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{
+			Italic: true,
+			Size:   10,
+		},
+		Alignment: &excelize.Alignment{
+			Horizontal: "left",
+			Vertical:   "center",
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create sub-label style: %v", err)
+	}
+
+	dataStyle, err := f.NewStyle(&excelize.Style{
+		Border: []excelize.Border{
+			{Type: "left", Color: "#000000", Style: 1},
+			{Type: "top", Color: "#000000", Style: 1},
+			{Type: "bottom", Color: "#000000", Style: 1},
+			{Type: "right", Color: "#000000", Style: 1},
+		},
+		Alignment: &excelize.Alignment{
+			Vertical: "center",
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create data style: %v", err)
+	}
+
+	newStyle, err := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{
+			Bold:  true,
+			Color: "#008000",
+		},
+		Border: []excelize.Border{
+			{Type: "left", Color: "#000000", Style: 1},
+			{Type: "top", Color: "#000000", Style: 1},
+			{Type: "bottom", Color: "#000000", Style: 1},
+			{Type: "right", Color: "#000000", Style: 1},
+		},
+		Alignment: &excelize.Alignment{
+			Vertical: "center",
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create new style: %v", err)
+	}
+
+	f.SetCellValue(sheetName, "A1", "Objetos a serem atualizados")
+	f.SetCellStyle(sheetName, "A1", "A1", titleStyle)
+
+	headers := []string{"SEQUENCIA", "CAMINHO E OBJETO", "TIPO", "BASE"}
+	for i, header := range headers {
+		cell := string(rune('A'+i)) + "3"
+		f.SetCellValue(sheetName, cell, header)
+		f.SetCellStyle(sheetName, cell, cell, headerStyle)
+	}
+
+	f.SetCellValue(sheetName, "B4", "Lista de Serviços Alterados")
+	f.SetCellStyle(sheetName, "B4", "B4", subLabelStyle)
+	f.SetCellValue(sheetName, "B5", "Publicado")
+	f.SetCellStyle(sheetName, "B5", "B5", subLabelStyle)
+
+	row := 6
+	for _, entry := range entries {
+		rowStr := strconv.Itoa(row)
+		f.SetCellValue(sheetName, "A"+rowStr, entry.Sequence)
+		f.SetCellValue(sheetName, "B"+rowStr, entry.Path)
+		f.SetCellValue(sheetName, "C"+rowStr, entry.Type)
+
+		for col := 'A'; col <= 'D'; col++ {
+			cell := string(col) + rowStr
+			if entry.Type == "NEW" && col == 'C' {
+				f.SetCellStyle(sheetName, cell, cell, newStyle)
+			} else {
+				f.SetCellStyle(sheetName, cell, cell, dataStyle)
+			}
+		}
+
+		row++
+	}
+
+	f.SetColWidth(sheetName, "A", "A", 12)
+	f.SetColWidth(sheetName, "B", "B", 80)
+	f.SetColWidth(sheetName, "C", "C", 10)
+	f.SetColWidth(sheetName, "D", "D", 10)
+
+	fullPath := filepath.Join(repoPath, fileName)
+	if err := f.SaveAs(fullPath); err != nil {
+		return fmt.Errorf("failed to save Excel file: %v", err)
+	}
+
+	return nil
+}

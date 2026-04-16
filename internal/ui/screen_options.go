@@ -155,6 +155,11 @@ func (s *optionsScreen) View(width, height int) string {
 	content += "Press " + highlightStyle.Render("Tab") + " to toggle current branch only (" + boolToYesNo(s.currentBranchOnly) + ").\n"
 	content += "Press " + highlightStyle.Render("Alt+Tab") + " to toggle show files (" + boolToYesNo(s.showFiles) + ").\n"
 	content += "Press " + highlightStyle.Render("D") + " to toggle dotnet project mode (" + boolToYesNo(s.dotnetMode) + ").\n"
+	authorDisplay := s.author
+	if authorDisplay == "" {
+		authorDisplay = "all authors"
+	}
+	content += dimmedStyle.Render("Author filter: "+authorDisplay) + "\n"
 	content += modifyHelpText("", true, true, false)
 	return content
 }

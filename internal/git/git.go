@@ -16,6 +16,7 @@ const (
 	LogFormat        = "%H" + GitDelimiter + "%an" + GitDelimiter + "%ae" + GitDelimiter + "%ad" + GitDelimiter + "%s"
 	LogFieldCount    = 5
 	HeadBranchPrefix = "HEAD branch:"
+	commitSeparator  = "---COMMIT_SEP---"
 )
 
 var defaultBranchCandidates = []string{"main", "master", "trunk", "development", "dev"}
@@ -77,9 +78,15 @@ func GatherCommits(path, authorInput, parentBranch string, currentBranchOnly boo
 		return nil, "", err
 	}
 
+	logFmt := commitSeparator + "\n" + LogFormat
+
 	args := []string{"log",
-		"--pretty=format:" + LogFormat,
-		"--author=" + authorInput,
+		"--pretty=format:" + logFmt,
+		"--name-only",
+	}
+
+	if authorInput != "" {
+		args = append(args, "--author="+authorInput)
 	}
 
 	if currentBranchOnly {
@@ -93,8 +100,8 @@ func GatherCommits(path, authorInput, parentBranch string, currentBranchOnly boo
 		return nil, "", err
 	}
 
-	commits, err := parseCommits(path, output)
-	return commits, currentBranch, err
+	commits := parseCommits(output)
+	return commits, currentBranch, nil
 }
 
 func getCommitRange(path, currentBranch, parentBranch string) string {
@@ -113,23 +120,39 @@ func getCommitRange(path, currentBranch, parentBranch string) string {
 	return mergeBase + ".." + currentBranch
 }
 
-func parseCommits(path, output string) ([]models.CommitInfo, error) {
-	lines := strings.Split(output, "\n")
-	results := make([]models.CommitInfo, 0, len(lines))
+func parseCommits(output string) []models.CommitInfo {
+	if output == "" {
+		return nil
+	}
 
-	for _, line := range lines {
-		if line == "" {
+	blocks := strings.Split(output, commitSeparator)
+	results := make([]models.CommitInfo, 0, len(blocks))
+
+	for _, block := range blocks {
+		block = strings.TrimSpace(block)
+		if block == "" {
 			continue
 		}
 
-		parts := strings.SplitN(line, GitDelimiter, LogFieldCount)
+		lines := strings.SplitN(block, "\n", 2)
+		metaLine := strings.TrimSpace(lines[0])
+		if metaLine == "" {
+			continue
+		}
+
+		parts := strings.SplitN(metaLine, GitDelimiter, LogFieldCount)
 		if len(parts) < LogFieldCount {
 			continue
 		}
 
-		files, err := GetChangedFiles(path, parts[0])
-		if err != nil {
-			return nil, err
+		var files []string
+		if len(lines) > 1 {
+			for _, f := range strings.Split(strings.TrimSpace(lines[1]), "\n") {
+				f = strings.TrimSpace(f)
+				if f != "" {
+					files = append(files, f)
+				}
+			}
 		}
 
 		results = append(results, models.CommitInfo{
@@ -142,7 +165,7 @@ func parseCommits(path, output string) ([]models.CommitInfo, error) {
 		})
 	}
 
-	return results, nil
+	return results
 }
 
 func GetChangedFiles(path, commitHash string) ([]string, error) {
@@ -188,4 +211,10 @@ func DetectDefaultBranch(path string) string {
 	}
 
 	return DefaultBranchRef
+}
+
+func PathExistsInRef(repoPath, ref, targetPath string) bool {
+	targetPath = strings.ReplaceAll(targetPath, "\\", "/")
+	output, err := execGit(repoPath, "cat-file", "-t", ref+":"+targetPath)
+	return err == nil && strings.TrimSpace(output) != ""
 }

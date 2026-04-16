@@ -101,9 +101,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.commits = msg.Commits
 		m.branch = msg.Branch
+		m.parentBranch = msg.ParentBranch
+		m.dotnetMode = msg.DotnetMode
 		m.message = fmt.Sprintf("Found %d commits in branch '%s'", len(m.commits), m.branch)
 		m.messageStyle = successStyle
-		m.activeScreen = newResultsScreen(m.gitService, m.commits, m.directory, m.showFiles)
+		m.activeScreen = newResultsScreen(m.gitService, m.commits, m.directory, m.branch, m.parentBranch, m.showFiles, m.dotnetMode)
 		return m, nil
 
 	case models.ExportExcelMsg:
@@ -132,9 +134,7 @@ func (m model) handleNavigation(msg NavigateMsg) (model, tea.Cmd) {
 	if msg.Data.Directory != "" {
 		m.directory = msg.Data.Directory
 	}
-	if msg.Data.Author != "" {
-		m.author = msg.Data.Author
-	}
+	m.author = msg.Data.Author
 	if msg.Data.Branch != "" {
 		m.branch = msg.Data.Branch
 	}
@@ -155,19 +155,19 @@ func (m model) handleNavigation(msg NavigateMsg) (model, tea.Cmd) {
 
 	case models.AuthorScreen:
 		m.activeScreen = newAuthorScreenWithValue(m.author)
-		m.message = "Please enter the author name or email to filter commits"
+		m.message = "Enter author(s) to filter, or leave empty for all"
 		m.messageStyle = infoStyle
 
 	case models.OptionsScreen:
 		m.activeScreen = newOptionsScreenWithValues(
 			m.gitService, m.directory, m.author, m.parentBranch,
-			m.maxCommits, m.currentBranchOnly, m.showFiles, m.dotnetMode,
+			m.currentBranchOnly, m.showFiles, m.dotnetMode,
 		)
 		m.message = "Configure additional options"
 		m.messageStyle = infoStyle
 
 	case models.ResultsScreen:
-		m.activeScreen = newResultsScreen(m.gitService, m.commits, m.directory, m.showFiles)
+		m.activeScreen = newResultsScreen(m.gitService, m.commits, m.directory, m.branch, m.parentBranch, m.showFiles, m.dotnetMode)
 		m.message = fmt.Sprintf("Found %d commits in branch '%s'", len(m.commits), m.branch)
 		m.messageStyle = successStyle
 	}

@@ -10,18 +10,24 @@ import (
 )
 
 type resultsScreen struct {
-	gitService git.GitService
-	commits    []models.CommitInfo
-	directory  string
-	showFiles  bool
+	gitService   git.GitService
+	commits      []models.CommitInfo
+	directory    string
+	branch       string
+	parentBranch string
+	showFiles    bool
+	dotnetMode   bool
 }
 
-func newResultsScreen(svc git.GitService, commits []models.CommitInfo, directory string, showFiles bool) ScreenModel {
+func newResultsScreen(svc git.GitService, commits []models.CommitInfo, directory, branch, parentBranch string, showFiles, dotnetMode bool) ScreenModel {
 	return &resultsScreen{
-		gitService: svc,
-		commits:    commits,
-		directory:  directory,
-		showFiles:  showFiles,
+		gitService:   svc,
+		commits:      commits,
+		directory:    directory,
+		branch:       branch,
+		parentBranch: parentBranch,
+		showFiles:    showFiles,
+		dotnetMode:   dotnetMode,
 	}
 }
 
@@ -29,6 +35,9 @@ func (s *resultsScreen) Update(msg tea.Msg) (ScreenModel, tea.Cmd) {
 	if keyMsg, ok := msg.(tea.KeyMsg); ok {
 		switch keyMsg.Type {
 		case tea.KeyEnter:
+			if s.dotnetMode {
+				return s, exportDotnetExcelCmd(s.gitService, s.commits, s.directory, s.branch, s.parentBranch)
+			}
 			return s, exportExcelCmd(s.gitService, s.commits, s.directory)
 
 		case tea.KeyRunes:

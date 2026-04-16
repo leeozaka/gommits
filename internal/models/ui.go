@@ -32,9 +32,11 @@ type Toast struct {
 }
 
 type FetchCommitsMsg struct {
-	Commits []CommitInfo
-	Branch  string
-	Err     error
+	Commits      []CommitInfo
+	Branch       string
+	ParentBranch string
+	DotnetMode   bool
+	Err          error
 }
 
 type ExportExcelMsg struct {

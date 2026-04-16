@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"fmt"
-
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/leeozaka/gommits/internal/models"
@@ -14,19 +12,19 @@ type authorScreen struct {
 
 func newAuthorScreen() ScreenModel {
 	ti := textinput.New()
-	ti.Placeholder = "Enter author name or email"
+	ti.Placeholder = "Author(s) comma-separated, or empty for all"
 	ti.Focus()
-	ti.CharLimit = 256
-	ti.Width = 50
+	ti.CharLimit = 512
+	ti.Width = 60
 	return &authorScreen{textInput: ti}
 }
 
 func newAuthorScreenWithValue(value string) ScreenModel {
 	ti := textinput.New()
-	ti.Placeholder = "Enter author name or email"
+	ti.Placeholder = "Author(s) comma-separated, or empty for all"
 	ti.Focus()
-	ti.CharLimit = 256
-	ti.Width = 50
+	ti.CharLimit = 512
+	ti.Width = 60
 	ti.SetValue(value)
 	return &authorScreen{textInput: ti}
 }
@@ -36,9 +34,6 @@ func (s *authorScreen) Update(msg tea.Msg) (ScreenModel, tea.Cmd) {
 		switch keyMsg.Type {
 		case tea.KeyEnter:
 			author := s.textInput.Value()
-			if author == "" {
-				return s, errorCmd(fmt.Errorf("author name cannot be empty"), "author input")
-			}
 			return s, func() tea.Msg {
 				return NavigateMsg{
 					To:   models.OptionsScreen,
@@ -61,5 +56,7 @@ func (s *authorScreen) Update(msg tea.Msg) (ScreenModel, tea.Cmd) {
 }
 
 func (s *authorScreen) View(width, height int) string {
-	return s.textInput.View() + "\n\n" + modifyHelpText("continue", true, true, false)
+	return s.textInput.View() + "\n" +
+		dimmedStyle.Render("Leave empty to include all authors. Separate multiple with commas.") + "\n\n" +
+		modifyHelpText("continue", true, true, false)
 }
