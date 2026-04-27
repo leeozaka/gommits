@@ -31,6 +31,7 @@ func ResolveProjects(repoPath string, commits []models.CommitInfo) []models.Comm
 			}
 		}
 
+		resolved[i].RawFiles = commit.Files
 		resolved[i].Files = projects
 	}
 

@@ -113,7 +113,8 @@ func exportDotnetExcelCmd(svc git.GitService, commits []models.CommitInfo, repoP
 		}
 
 		entries := utils.AggregateDotnetEntries(commits, branch, existsInParent)
-		err := utils.ExportDotnetExcel(entries, repoPath, repoName)
+		up, down := utils.AggregateDBAEntries(commits, time.Now().Year())
+		err := utils.ExportDotnetExcel(entries, up, down, repoPath, repoName)
 		return models.ExportExcelMsg{Path: repoPath, Err: err}
 	}
 }
